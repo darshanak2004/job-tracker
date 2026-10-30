@@ -26,8 +26,7 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      # verify = Checkstyle (lint) -> compile -> unit/controller/Testcontainers tests -> JaCoCo report + 70% gate
-      # (GitHub's ubuntu runners ship Docker, which Testcontainers needs)
+      # verify runs Checkstyle, tests, and the JaCoCo 70% service coverage gate.
       - name: Build, lint and test
         run: mvn -B verify
       - name: Upload coverage report
@@ -54,7 +53,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # The source archive has no package-lock.json; package.json pins direct versions.
       - run: npm install --no-audit --no-fund
       - name: Lint
         run: npm run lint
@@ -69,8 +67,7 @@ jobs:
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
-      - name: Create .env
-        run: cp .env.example .env
+      # docker-compose.yml supplies defaults, so CI does not need a .env file.
       - name: Start the whole stack
         run: docker compose up -d --build --wait --wait-timeout 300
       - name: Backend is healthy and the API works end-to-end
@@ -95,7 +92,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    # Images are built on every run (proves the Dockerfiles work) but only PUSHED on merge to main
+    # Images are built on every run and pushed to GHCR on pushes to main.
     env:
       PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     strategy:
@@ -130,7 +127,7 @@ jobs:
           push: ${{ env.PUSH == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Set the repo variable NEXT_PUBLIC_API_URL to your deployed API URL (used by the frontend image only)
+          # Set the repo variable NEXT_PUBLIC_API_URL to your deployed API URL.
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:8080' }}
           cache-from: type=gha,scope=${{ matrix.name }}
